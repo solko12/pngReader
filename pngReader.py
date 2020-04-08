@@ -1,4 +1,4 @@
-file = open("PNGFile.png", "rb")
+file = open("PNGFile2.png", "rb")
 print("::PNG SIGNATURE::")
 
 for i in range(8):
@@ -97,7 +97,7 @@ while chunk_data:
             plik.write("\nBlue x:"+str(variable))
             variable = int(chunk_data.hex()[28:32], 16)
             print("Blue y:", variable)
-            plik.write("\bBlue y:"+str(variable))
+            plik.write("\nBlue y:"+str(variable))
 
     else:
        print(chunk_data.hex())
