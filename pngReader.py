@@ -120,4 +120,4 @@ plik.write("\nChunk type: "+ str(chunk_type))
 print("CRC: ", crc.hex())
 plik.write("\nCRC: "+crc.hex())
 
-print("\n\nData for FFT:", data_for_FFT)
+#print("\n\nData for FFT:", data_for_FFT)
