@@ -1,0 +1,26 @@
+
+# Funkcje z biblioteki PILLOW wyświetlają oryginalny obraz
+from PIL import Image
+#read the image
+im = Image.open("PNGFile.png")
+#show image
+#im.show()
+
+
+
+
+# Funkcje z bibliotek/modułów cv2 numpy i matplot... wyświetlają widmo ampl. i fazowe
+import cv2
+import numpy as np
+import matplotlib.pyplot as plot
+
+plot.figure(figsize=(6.4*5, 4.8*5))
+
+image1 = cv2.imread("PNGFile2.png", 0)
+image2 = np.fft.fft2(image1)
+image3 = np.fft.fftshift(image2)
+image4 = np.angle(image3)
+#plot.subplot(141), plot.imshow(image1, "gray"), plot.title("Obraz czarnobiały")
+plot.subplot(142), plot.imshow(np.log(1+np.abs(image3)), "gray"), plot.title("widmo amplitudowe")
+plot.subplot(143), plot.imshow(np.log(1+np.abs(image4)), "gray"), plot.title("widmo fazowe")
+plot.show()
