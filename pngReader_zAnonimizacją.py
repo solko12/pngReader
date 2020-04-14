@@ -1,21 +1,26 @@
+import struct
+
 tryb = int(input("Wybierz tryb działania ( 0 - dokodowanie pliku , 1 - anonimizacja pliku) : "))
+input_file = input("Podaj nazwe pliku wejsciowego PNG: ")
 
-if (tryb == 0):
-    file = open("PNGFile.png", "rb")
+
+def dekodowanie(wejscie, wyjscie):
+    file = open(wejscie, "rb")
+    plik = open(wyjscie,'w')
+
     print("::PNG SIGNATURE::")
-
 
     for i in range(8):
         signature = file.read(1)
         print(signature.hex())
 
-    chunk_length = int(file.read(4).hex(), 16)
+    chunk_length = int.from_bytes(file.read(4), byteorder='big')
     chunk_type = bytearray.fromhex(file.read(4).hex()).decode()
     chunk_data = file.read(chunk_length)
     crc = file.read(4)
 
     data_for_FFT = ""
-    plik = open('wyjsciowy.txt','w')
+    filter_method = 0;
 
     while chunk_data:
         plik.write("\n\n::NEXT CHUNK::")
@@ -27,7 +32,6 @@ if (tryb == 0):
         print("\n::NEXT CHUNK::")
         print("Chunk length: ", chunk_length)
         print("Chunk type: ", chunk_type)
-        filter_method = 0;
 
         if chunk_type.upper() in {"IHDR","IDAT","PLTE","PHYS","TEXT","CHRM"}:
             if chunk_type.upper() == "IHDR":
@@ -55,8 +59,8 @@ if (tryb == 0):
 
             if chunk_type.upper() == "IDAT":
                 variable = chunk_data.hex()
-                print("Chunk IDAT data: ", variable)
-                plik.write("\nChunk IDAT data: "+ str(variable))
+                print("Chunk IDAT data: IDAT DATA COVERS OTHER INFO", )
+                plik.write("\nChunk IDAT data: IDAT DATA COVERS OTHER INFO")
                 data_for_FFT = data_for_FFT+variable
 
             if chunk_type.upper() == "PLTE":
@@ -74,7 +78,7 @@ if (tryb == 0):
                 print("PixelUnits: ", variable, "   ( if equal 1 it's meters, if equal 0 it's unknown )")
                 plik.write("\nPixelUnits: "+ str(variable)+ "\t( if equal 1 it's meters, if equal 0 it's unknown )")
 
-            if chunk_type.upper() == "TEXT":
+            if chunk_type.upper() in {"TEXT","ITXT","ZTXT"}:
                 print("Chunk data: ", bytearray.fromhex(chunk_data.hex()).decode())
                 plik.write("\nChunk data: "+ bytearray.fromhex(chunk_data.hex()).decode())
 
@@ -111,7 +115,7 @@ if (tryb == 0):
         print("CRC: ", crc.hex())
         plik.write("\nCRC: "+ crc.hex())
 
-        chunk_length = int(file.read(4).hex(), 16)
+        chunk_length = int.from_bytes(file.read(4), byteorder='big')
         chunk_type = bytearray.fromhex(file.read(4).hex()).decode()
         chunk_data = file.read(chunk_length)
         crc = file.read(4)
@@ -128,43 +132,58 @@ if (tryb == 0):
     print("\n\nData for FFT:", data_for_FFT)
     # Tutaj próbuję zapisać do pliku tylko te chunki główne, ale niezbyt wiem jak to zapisać/ w jakim formacie. 
     # Nie wiem czy nie trzeba ich jakoś kodować i czy nie łatwiej będzie wyrzucić zbędne informacje z głównego pliku niż tworzyć nowy
-if (tryb == 1):
-   file = open("PNGFile.png", "rb")
-   plik = open('PNGFileAnim.png','w')
-
-   for i in range(8):
-         signature = file.read(1)
-         plik.write(str(signature))
 
 
+def anonimizacja():
 
-   chunk_length = file.read(4)
-   chunk_length2 = int(chunk_length.hex(), 16)
-   chunk_type = file.read(4)
-   chunk_type2 = bytearray.fromhex(chunk_type.hex()).decode()
-   chunk_data = file.read(chunk_length2)
-   crc = file.read(4)
+    wyjscie = input('Podaj nazwe pliku wyjsciowego png po anonimizacji: ')
+    chunks = input("Podaj nazwe pliku wyjsciowego, gdzie zapisane zostana zdekodowane chunki przed anonimizacja: ")
+    dekodowanie(input_file, chunks)
+    old_png = open(input_file, "rb")
+    new_png = open(wyjscie,'wb')
 
-   while chunk_data:
+    for i in range(8):
+         signature = old_png.read(1)
+         new_png.write(signature)
 
-        if chunk_type2.upper() in {"IHDR","IDAT","PLTE","IEND"}:
+
+
+    chunk_length = old_png.read(4)
+    chunk_length2 = int.from_bytes(chunk_length, byteorder='big')
+    chunk_type = old_png.read(4)
+    chunk_type2 = bytearray.fromhex(chunk_type.hex()).decode()
+    chunk_data = old_png.read(chunk_length2)
+    crc = old_png.read(4)
+
+    while chunk_data:
+
+        if chunk_type2.upper() in {"IHDR","IDAT","PLTE"}:
        #    print("oo")
-           plik.write(str(chunk_length))
-           plik.write(str(chunk_type))
-           plik.write(str(chunk_data))
-           plik.write(str(crc))
+           new_png.write(chunk_length)
+           new_png.write(chunk_type)
+           new_png.write(chunk_data)
+           new_png.write(crc)
+        if chunk_type2.upper() == "IEND":
+            new_png.write(chunk_length)
+            new_png.write(chunk_type)
+            new_png.write(crc)
 
-
-        #data_for_FFT = data_for_FFT+variable
-
-        chunk_length = file.read(4)
-        chunk_length2 = int(chunk_length.hex(), 16)
-        chunk_type = file.read(4)
+        chunk_length = old_png.read(4)
+        chunk_length2 = int.from_bytes(chunk_length, byteorder='big')
+        chunk_type = old_png.read(4)
         chunk_type2 = bytearray.fromhex(chunk_type.hex()).decode()
-        chunk_data = file.read(chunk_length2)
-        crc = file.read(4)
-   plik.write(str(chunk_length))
-   plik.write(str(chunk_type))
-   plik.write(str(chunk_data))
-   plik.write(str(crc))
+        chunk_data = old_png.read(chunk_length2)
+        crc = old_png.read(4)
+    new_png.write(bytes(chunk_length2))
+    new_png.write(chunk_type)
+    new_png.write(chunk_data)
+    new_png.write(crc)
 
+    chunks = input("Podaj nazwe pliku wyjsciowego, gdzie zapisane zostana zdekodowane chunki po anonimizacji: ")
+    dekodowanie(wyjscie, chunks)
+
+if tryb==0:
+    output_file = input("Podaj nazwe pliku wyjsciowego, gdzie zapisane zostana zdekodowane chunki: ")
+    dekodowanie(input_file, output_file)
+if tryb ==1:
+    anonimizacja()
