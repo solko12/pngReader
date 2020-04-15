@@ -1,7 +1,9 @@
-import struct
+import cv2
+import numpy as np
+import matplotlib.pyplot as plot
+from PIL import Image
 
-tryb = int(input("Wybierz tryb działania ( 0 - dokodowanie pliku , 1 - anonimizacja pliku) : "))
-input_file = input("Podaj nazwe pliku wejsciowego PNG: ")
+tryb = int(input("Wybierz tryb działania ( 0 - dokodowanie pliku , 1 - anonimizacja pliku, 2 - FFT) : "))
 
 
 def dekodowanie(wejscie, wyjscie):
@@ -134,38 +136,25 @@ def dekodowanie(wejscie, wyjscie):
     # Nie wiem czy nie trzeba ich jakoś kodować i czy nie łatwiej będzie wyrzucić zbędne informacje z głównego pliku niż tworzyć nowy
 
 
-def anonimizacja():
-
-    wyjscie = input('Podaj nazwe pliku wyjsciowego png po anonimizacji: ')
+def anonimizacja(wejscie, wyjscie):
     chunks = input("Podaj nazwe pliku wyjsciowego, gdzie zapisane zostana zdekodowane chunki przed anonimizacja: ")
-    dekodowanie(input_file, chunks)
-    old_png = open(input_file, "rb")
+    dekodowanie(wejscie, chunks)
+    old_png = open(wejscie, "rb")
     new_png = open(wyjscie,'wb')
-
     for i in range(8):
          signature = old_png.read(1)
          new_png.write(signature)
-
-
-
     chunk_length = old_png.read(4)
     chunk_length2 = int.from_bytes(chunk_length, byteorder='big')
     chunk_type = old_png.read(4)
     chunk_type2 = bytearray.fromhex(chunk_type.hex()).decode()
     chunk_data = old_png.read(chunk_length2)
     crc = old_png.read(4)
-
     while chunk_data:
-
         if chunk_type2.upper() in {"IHDR","IDAT","PLTE"}:
-       #    print("oo")
-           new_png.write(chunk_length)
-           new_png.write(chunk_type)
-           new_png.write(chunk_data)
-           new_png.write(crc)
-        if chunk_type2.upper() == "IEND":
             new_png.write(chunk_length)
             new_png.write(chunk_type)
+            new_png.write(chunk_data)
             new_png.write(crc)
 
         chunk_length = old_png.read(4)
@@ -174,7 +163,7 @@ def anonimizacja():
         chunk_type2 = bytearray.fromhex(chunk_type.hex()).decode()
         chunk_data = old_png.read(chunk_length2)
         crc = old_png.read(4)
-    new_png.write(bytes(chunk_length2))
+    new_png.write(chunk_length)
     new_png.write(chunk_type)
     new_png.write(chunk_data)
     new_png.write(crc)
@@ -182,8 +171,45 @@ def anonimizacja():
     chunks = input("Podaj nazwe pliku wyjsciowego, gdzie zapisane zostana zdekodowane chunki po anonimizacji: ")
     dekodowanie(wyjscie, chunks)
 
+def showImage(file):
+    # Funkcje z biblioteki PILLOW wyświetlają oryginalny obraz
+    #read the image
+    im = Image.open(file)
+    #show image
+    im.show()
+
+
+# Funkcje z bibliotek/modułów cv2 numpy i matplot... wyświetlają widmo ampl. i fazowe
+def doFourierTransform(file):
+    plot.figure(figsize=(6.4*5, 4.8*5))
+
+    image1 = cv2.imread(file, 0)
+    image2 = np.fft.fft2(image1)
+    image3 = np.fft.fftshift(image2)
+    image4 = np.angle(image3)
+    plot.subplot(142), plot.imshow(np.log(1+np.abs(image3)), "gray"), plot.title("widmo amplitudowe")
+    plot.subplot(143), plot.imshow(np.log(1+np.abs(image4)), "gray"), plot.title("widmo fazowe")
+    plot.show()
+
 if tryb==0:
+    input_file = input("Podaj nazwe pliku wejsciowego PNG: ")
     output_file = input("Podaj nazwe pliku wyjsciowego, gdzie zapisane zostana zdekodowane chunki: ")
     dekodowanie(input_file, output_file)
 if tryb ==1:
-    anonimizacja()
+    input_file = input("Podaj nazwe pliku wejsciowego PNG: ")
+    showImage(input_file)
+    wyjscie = input('Podaj nazwe pliku wyjsciowego png po anonimizacji: ')
+    anonimizacja(input_file, wyjscie)
+    showImage(wyjscie)
+if tryb ==2:
+    transform_file = input("Podaj nazwe pliku którego transformacji należy dokonać: ")
+    doFourierTransform(transform_file)
+
+
+
+
+
+
+
+
+
