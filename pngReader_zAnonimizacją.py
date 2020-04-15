@@ -167,7 +167,8 @@ def anonimizacja(wejscie, wyjscie):
     new_png.write(chunk_type)
     new_png.write(chunk_data)
     new_png.write(crc)
-
+    new_png.close()
+   
     chunks = input("Podaj nazwe pliku wyjsciowego, gdzie zapisane zostana zdekodowane chunki po anonimizacji: ")
     dekodowanie(wyjscie, chunks)
 
