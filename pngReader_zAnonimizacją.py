@@ -3,9 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plot
 from PIL import Image
 
-tryb = int(input("Wybierz tryb działania ( 0 - dokodowanie pliku , 1 - anonimizacja pliku, 2 - FFT) : "))
-
-
 def dekodowanie(wejscie, wyjscie):
     file = open(wejscie, "rb")
     plik = open(wyjscie,'w')
@@ -20,10 +17,6 @@ def dekodowanie(wejscie, wyjscie):
     chunk_type = bytearray.fromhex(file.read(4).hex()).decode()
     chunk_data = file.read(chunk_length)
     crc = file.read(4)
-
-    data_for_FFT = ""
-    filter_method = 0;
-
     while chunk_data:
         plik.write("\n\n::NEXT CHUNK::")
         plik.write("\nChunk length: ")
@@ -63,7 +56,6 @@ def dekodowanie(wejscie, wyjscie):
                 variable = chunk_data.hex()
                 print("Chunk IDAT data: IDAT DATA COVERS OTHER INFO", )
                 plik.write("\nChunk IDAT data: IDAT DATA COVERS OTHER INFO")
-                data_for_FFT = data_for_FFT+variable
 
             if chunk_type.upper() == "PLTE":
                 print("Palette:", chunk_data.hex())
@@ -115,7 +107,7 @@ def dekodowanie(wejscie, wyjscie):
            plik.write("\n"+str(chunk_data.hex()))
 
         print("CRC: ", crc.hex())
-        plik.write("\nCRC: "+ crc.hex())
+        plik.write("\nCRC: " + crc.hex())
 
         chunk_length = int.from_bytes(file.read(4), byteorder='big')
         chunk_type = bytearray.fromhex(file.read(4).hex()).decode()
@@ -128,12 +120,10 @@ def dekodowanie(wejscie, wyjscie):
     plik.write("\nChunk length: "+str(chunk_length))
     print("Chunk type: ", chunk_type)
     plik.write("\nChunk type: "+ str(chunk_type))
+    print("Chunk data: ", chunk_data)
+    plik.write("\nChunkt data:"+str(chunk_data))
     print("CRC: ", crc.hex())
     plik.write("\nCRC: "+crc.hex())
-
-    print("\n\nData for FFT:", data_for_FFT)
-    # Tutaj próbuję zapisać do pliku tylko te chunki główne, ale niezbyt wiem jak to zapisać/ w jakim formacie. 
-    # Nie wiem czy nie trzeba ich jakoś kodować i czy nie łatwiej będzie wyrzucić zbędne informacje z głównego pliku niż tworzyć nowy
 
 
 def anonimizacja(wejscie, wyjscie):
@@ -192,19 +182,30 @@ def doFourierTransform(file):
     plot.subplot(143), plot.imshow(np.log(1+np.abs(image4)), "gray"), plot.title("widmo fazowe")
     plot.show()
 
-if tryb==0:
-    input_file = input("Podaj nazwe pliku wejsciowego PNG: ")
-    output_file = input("Podaj nazwe pliku wyjsciowego, gdzie zapisane zostana zdekodowane chunki: ")
-    dekodowanie(input_file, output_file)
-if tryb ==1:
-    input_file = input("Podaj nazwe pliku wejsciowego PNG: ")
-    showImage(input_file)
-    wyjscie = input('Podaj nazwe pliku wyjsciowego png po anonimizacji: ')
-    anonimizacja(input_file, wyjscie)
-    showImage(wyjscie)
-if tryb ==2:
-    transform_file = input("Podaj nazwe pliku którego transformacji należy dokonać: ")
-    doFourierTransform(transform_file)
+tryb = int(input("Wybierz tryb działania "
+                 "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
+                 "\n3 - wyswietl zdjecie, \n9 - wyjscie \nWybor: "))
+
+while(tryb!=9):
+    if tryb==0:
+        input_file = input("Podaj nazwe pliku wejsciowego PNG: ")
+        output_file = input("Podaj nazwe pliku wyjsciowego, gdzie zapisane zostana zdekodowane chunki: ")
+        dekodowanie(input_file, output_file)
+    elif tryb ==1:
+        input_file = input("Podaj nazwe pliku wejsciowego PNG: ")
+        wyjscie = input('Podaj nazwe pliku wyjsciowego png po anonimizacji: ')
+        anonimizacja(input_file, wyjscie)
+    elif tryb ==2:
+        transform_file = input("Podaj nazwe pliku którego transformacji należy dokonać: ")
+        doFourierTransform(transform_file)
+    elif tryb == 3:
+        picture_to_show = input("Podaj nazwe pliku png do wyswietlenia: ")
+        showImage(picture_to_show)
+    else:
+        print("Błędny tryb! Wybierz z listy prawidłowy!!")
+    tryb = int(input("Wybierz tryb działania "
+                     "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
+                     "\n3 - wyswietl zdjecie, \n9 - wyjscie \nWybor: "))
 
 
 
