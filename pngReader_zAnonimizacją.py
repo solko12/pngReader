@@ -58,8 +58,21 @@ def dekodowanie(wejscie, wyjscie):
                 plik.write("\nChunk IDAT data: IDAT DATA COVERS OTHER INFO")
 
             if chunk_type.upper() == "PLTE":
-                print("Palette:", chunk_data.hex())
-                plik.write("\nPalette:"+ str(chunk_data.hex()))
+                for i in range(0,chunk_length,3):
+                    if i == 0:
+                        print("\nPalette nb. 1")
+                    else:
+                        print("Palette nb. "+str(int(i/3+1)))
+                    print("Red: "+str(int.from_bytes(chunk_data[i:i+1], byteorder='big')))
+                    print("Green: "+str(int.from_bytes(chunk_data[i+1:i+2], byteorder='big')))
+                    print("Blue: "+str(int.from_bytes(chunk_data[i+2:i+3], byteorder='big')))
+                    if i == 0:
+                        plik.write("\nPalette nb. 1")
+                    else:
+                        plik.write("Palette nb. "+str(int(i/3+1)))
+                    plik.write("\nRed: "+str(int.from_bytes(chunk_data[i:i+1], byteorder='big')))
+                    plik.write("\nGreen: "+str(int.from_bytes(chunk_data[i+1:i+2], byteorder='big')))
+                    plik.write("\nBlue: "+str(int.from_bytes(chunk_data[i+2:i+3], byteorder='big'))+"\n")
 
             if chunk_type.upper() == "PHYS":
                 variable = int(chunk_data.hex()[0:8], 16)
