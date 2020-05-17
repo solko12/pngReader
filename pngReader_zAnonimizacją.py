@@ -211,7 +211,6 @@ def findPrime(primeBits):
                 key = random.getrandbits(primeBits)
     except OverflowError:
         ans = float('inf')
-    print("It's prime: " + str(key))
     return key
 
 
@@ -275,10 +274,42 @@ def isPrime(number):
         return True
 
 
+def extendedEuklides(a, b):
+    u = 1
+    w = a
+    x = 0
+    z = b
+    while w != 0:
+        if w < z:
+            u, x = x, u
+            w, z = z, w
+        q = w//z
+        u = u - q*x
+        w = w - q*z
+    if z != 1:
+        return False
+    if x < 0:
+        x = x+b
+    return x
+
+
+def generateRSA():
+    p = findPrime(32)
+    q = findPrime(32)
+    fi = (p-1)*(q-1)
+    n = p*q
+    e = random.randrange(1, n)
+    while nwd(e, fi) != 1:
+        e = random.randrange(1, n)
+    d = extendedEuklides(fi, e)
+    return {"public": (e, n), "private": (d, n)}
+
+
 start = time.time()
-findPrime(32)
+keys = generateRSA()
 end = time.time()
-print("Finding key time: "+ str(end-start))
+print("Public key: " + str(keys["public"]) + "\nPrivate key: " + str(keys["private"]))
+print("Finding key time: " + str(end-start))
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
