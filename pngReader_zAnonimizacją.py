@@ -1,3 +1,7 @@
+import math
+import random
+import time
+
 import cv2
 import numpy as np
 import matplotlib.pyplot as plot
@@ -191,13 +195,95 @@ def doFourierTransform(file):
     image2 = np.fft.fft2(image1)
     image3 = np.fft.fftshift(image2)
     image4 = np.angle(image3)
-    plot.subplot(142), plot.imshow(np.log(1+np.abs(image3)), "gray"), plot.title("widmo amplitudowe")
-    plot.subplot(143), plot.imshow(np.log(1+np.abs(image4)), "gray"), plot.title("widmo fazowe")
+    plot.subplot(121), plot.imshow(np.log(1+np.abs(image3)), "gray"), plot.title("widmo amplitudowe")
+    plot.axis('off')
+    plot.subplot(122), plot.imshow(np.log(1+np.abs(image4)), "gray"), plot.title("widmo fazowe")
+    plot.axis('off')
     plot.show()
+
+def findPrime(primeBits):
+    try:
+        key = random.getrandbits(primeBits)
+        if(isPrime(key)==True):
+            return key
+        else:
+            while(isPrime(key)==False):
+                key = random.getrandbits(primeBits)
+    except OverflowError:
+        ans = float('inf')
+    print("It's prime: " + str(key))
+    return key
+
+
+def nwd(a, b):
+    while b:
+        a, b = b, a%b
+    return a
+
+
+def isPrime(number):
+    flag = False
+    if number==1:
+        return False
+    #Preselection checking if it's even number
+    if number % 2 == 0:
+        return False
+    else:
+        #Preselection for max 10000 odd numbers
+        if(math.floor(math.sqrt(number))<10000):
+            end=math.floor(math.sqrt(number))
+        else:
+            end=10000
+        for i in range(3, end, 2):
+            if number % i == 0:
+                return False
+        #When number is primary in previous range check, check it by using Miller-Rabin Test
+        #Find max power of 2 and maximum multiply in number-1
+        s=0
+        d=number-1
+        while(d%2==0):
+            s=s+1
+            d=d/2
+        flag=True
+        # Miller-Rabin Test n-times
+        # All of the single tests reduces error possibility by multiply it by 1/4
+        # So error possibility is compute by (1/4)^n
+        n = 100
+        for i in range(1, n, 1):
+            a = random.randrange(2, number - 2)
+            x = math.pow(a, d) % number
+            if(x==1 or x==number-1):
+                while x == 1 or x == number-1:
+                    a = random.randrange(2, number - 2)
+                    x = math.pow(a, d) % number
+            j=1
+            while j<s and x!=number-1:
+                x=math.pow(x,2)%number
+                if x==1:
+                    return False
+                j=j+1
+            if x!=number-1:
+                return False
+        #I forgot name of these test
+        for i in range(1,10,1):
+            a = random.randrange(2,number-1)
+            if nwd(number,a)!=1:
+                return False
+            if math.pow(a,number-1)%number!=1:
+                return False
+        #If number pass all tests return true
+        return True
+
+
+start = time.time()
+findPrime(32)
+end = time.time()
+print("Finding key time: "+ str(end-start))
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
                  "\n3 - wyswietl zdjecie, \n9 - wyjscie \nWybor: "))
+
 
 while(tryb!=9):
     if tryb==0:
