@@ -1,11 +1,16 @@
 import math
 import random
 import time
+import zlib
 
 import cv2
 import numpy as np
 import matplotlib.pyplot as plot
 from PIL import Image
+
+
+keys={"public": (0,0), "private": (0,0)}
+
 
 def dekodowanie(wejscie, wyjscie):
     file = open(wejscie, "rb")
@@ -141,6 +146,7 @@ def dekodowanie(wejscie, wyjscie):
     plik.write("\nChunkt data:"+str(chunk_data))
     print("CRC: ", crc.hex())
     plik.write("\nCRC: "+crc.hex())
+    plik.close()
 
 
 def anonimizacja(wejscie, wyjscie):
@@ -175,6 +181,7 @@ def anonimizacja(wejscie, wyjscie):
     new_png.write(chunk_data)
     new_png.write(crc)
     new_png.close()
+    old_png.close()
    
     chunks = input("Podaj nazwe pliku wyjsciowego, gdzie zapisane zostana zdekodowane chunki po anonimizacji: ")
     dekodowanie(wyjscie, chunks)
@@ -305,15 +312,73 @@ def generateRSA():
     return {"public": (e, n), "private": (d, n)}
 
 
+def encodeNumber(numberToEncode):
+    return (numberToEncode ^ keys["public"][0]) % keys["public"][1]
+
+def encodePicture(wejscie, wyjscie):
+    old_png = open(wejscie, "rb")
+    new_png = open(wyjscie, 'wb')
+    for i in range(8):
+         signature = old_png.read(1)
+         new_png.write(signature)
+    chunk_length = old_png.read(4)
+    chunk_length2 = int.from_bytes(chunk_length, byteorder='big')
+    chunk_type = old_png.read(4)
+    chunk_type2 = bytearray.fromhex(chunk_type.hex()).decode()
+    chunk_data = old_png.read(chunk_length2)
+    crc = old_png.read(4)
+    while chunk_data:
+        if chunk_type2.upper() == "IDAT":
+            new_png.write(chunk_length)
+            new_png.write(chunk_type)
+            i = 1
+            chunk_encoded_data = ""
+            for singleNumber in chunk_data:
+                # if i == 1:
+                #     print("R: " + str(singleNumber))
+                # elif i == 2:
+                #     print("G: " + str(singleNumber))
+                # elif i == 3:
+                #     print("B: " + str(singleNumber))
+                # elif i == 4:
+                #     print("A: " + str(singleNumber))
+                #     i = 0
+                # chunk_encoded_data += str(encodeNumber(singleNumber))
+                i += 1
+            new_png.write(bytes(chunk_encoded_data.encode()))
+
+        else:
+            new_png.write(chunk_length)
+            new_png.write(chunk_type)
+            new_png.write(chunk_data)
+            new_png.write(crc)
+        chunk_length = old_png.read(4)
+        chunk_length2 = int.from_bytes(chunk_length, byteorder='big')
+        chunk_type = old_png.read(4)
+        chunk_type2 = bytearray.fromhex(chunk_type.hex()).decode()
+        chunk_data = old_png.read(chunk_length2)
+        crc = old_png.read(4)
+    new_png.write(chunk_length)
+    new_png.write(chunk_type)
+    new_png.write(chunk_data)
+    new_png.write(crc)
+    new_png.close()
+    old_png.close()
+
+filein = "PNGFile.png"
+fileout = "out.png"
+
 start = time.time()
 keys = generateRSA()
 end = time.time()
 print("Public key: " + str(keys["public"]) + "\nPrivate key: " + str(keys["private"]))
 print("Finding key time: " + str(end-start))
 
+encodePicture(filein, fileout)
+
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
-                 "\n3 - wyswietl zdjecie, \n9 - wyjscie \nWybor: "))
+                 "\n3 - wyswietl zdjecie,\n4 - koduj obraz \n9 - wyjscie \nWybor: "))
 
 
 while(tryb!=9):
@@ -331,6 +396,10 @@ while(tryb!=9):
     elif tryb == 3:
         picture_to_show = input("Podaj nazwe pliku png do wyswietlenia: ")
         showImage(picture_to_show)
+    elif tryb == 4:
+        picture_to_encode = input("Podaj nazwe pliku do zakodowania: ")
+        picture_after_encode = input("Podaj nazwe pliku wynikowego: ")
+        encodePicture(picture_to_encode, picture_after_encode)
     else:
         print("Błędny tryb! Wybierz z listy prawidłowy!!")
     tryb = int(input("Wybierz tryb działania "
