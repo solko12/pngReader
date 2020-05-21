@@ -211,10 +211,10 @@ def doFourierTransform(file):
 def findPrime(primeBits):
     try:
         key = random.getrandbits(primeBits)
-        if(isPrime(key)==True):
+        if isPrime(key):
             return key
         else:
-            while(isPrime(key)==False):
+            while not isPrime(key):
                 key = random.getrandbits(primeBits)
     except OverflowError:
         ans = float('inf')
@@ -227,58 +227,33 @@ def nwd(a, b):
     return a
 
 
-def isPrime(number):
-    flag = False
-    if number==1:
-        return False
-    #Preselection checking if it's even number
-    if number % 2 == 0:
-        return False
-    else:
-        #Preselection for max 10000 odd numbers
-        if(math.floor(math.sqrt(number))<10000):
-            end=math.floor(math.sqrt(number))
-        else:
-            end=10000
-        for i in range(3, end, 2):
-            if number % i == 0:
-                return False
-        #When number is primary in previous range check, check it by using Miller-Rabin Test
-        #Find max power of 2 and maximum multiply in number-1
-        s=0
-        d=number-1
-        while(d%2==0):
-            s=s+1
-            d=d/2
-        flag=True
-        # Miller-Rabin Test n-times
-        # All of the single tests reduces error possibility by multiply it by 1/4
-        # So error possibility is compute by (1/4)^n
-        n = 100
-        for i in range(1, n, 1):
-            a = random.randrange(2, number - 2)
-            x = math.pow(a, d) % number
-            if(x==1 or x==number-1):
-                while x == 1 or x == number-1:
-                    a = random.randrange(2, number - 2)
-                    x = math.pow(a, d) % number
-            j=1
-            while j<s and x!=number-1:
-                x=math.pow(x,2)%number
-                if x==1:
-                    return False
-                j=j+1
-            if x!=number-1:
-                return False
-        #I forgot name of these test
-        for i in range(1,10,1):
-            a = random.randrange(2,number-1)
-            if nwd(number,a)!=1:
-                return False
-            if math.pow(a,number-1)%number!=1:
-                return False
-        #If number pass all tests return true
+def isPrime(number, k=128):
+    # Test if n is not even.
+    # But care, 2 is prime !
+    if number == 2 or number == 3:
         return True
+    if number <= 1 or number % 2 == 0:
+        return False
+    # find d and s
+    s = 0
+    d = number - 1
+    while d & 1 == 0:
+        s += 1
+        d //= 2
+    # do k tests
+    for _ in range(k):
+        a = random.randrange(2, number - 1)
+        x = pow(a, d, number)
+        if x != 1 and x != number - 1:
+            j = 1
+            while j < s and x != number - 1:
+                x = pow(x, 2, number)
+                if x == 1:
+                    return False
+                j += 1
+            if x != number - 1:
+                return False
+    return True
 
 
 def extendedEuklides(a, b):
@@ -300,9 +275,17 @@ def extendedEuklides(a, b):
     return x
 
 
+# This method count number's number of bits
+def countTotalBits(num):
+    # convert number into it's binary and
+    # remove first two characters 0b.
+    binary = bin(num)[2:]
+    return len(binary)
+
+
 def generateRSA():
-    p = findPrime(32)
-    q = findPrime(32)
+    p = findPrime(512)
+    q = findPrime(512)
     fi = (p-1)*(q-1)
     n = p*q
     e = random.randrange(1, n)
@@ -312,12 +295,15 @@ def generateRSA():
     return {"public": (e, n), "private": (d, n)}
 
 
-def encodeNumber(numberToEncode):
-    return (numberToEncode ^ keys["public"][0]) % keys["public"][1]
+def encodeData(dataToEncode):
+    parts=""
+    for i in range(0, len(dataToEncode.encode()), countTotalBits(keys["public"][0])-1):
+        parts+=str(dataToEncode.encode()[i:i+countTotalBits(keys["public"][0])-1])# ^ keys["public"][0]) % keys["public"][1]
+    return parts
 
-def encodePicture(wejscie, wyjscie):
-    old_png = open(wejscie, "rb")
-    new_png = open(wyjscie, 'wb')
+def encodePicture(input, output):
+    old_png = open(input, "rb")
+    new_png = open(output, 'wb')
     for i in range(8):
          signature = old_png.read(1)
          new_png.write(signature)
@@ -328,25 +314,25 @@ def encodePicture(wejscie, wyjscie):
     chunk_data = old_png.read(chunk_length2)
     crc = old_png.read(4)
     while chunk_data:
-        if chunk_type2.upper() == "IDAT":
+        if chunk_type2.upper() == "IHDR":
+            imageWidth = int(chunk_data.hex()[0:8], 16)
+            imageHeight = int(chunk_data.hex()[8:16], 16)
+            imageDepht = int(chunk_data.hex()[16:18], 16)
+            imageColorType = int(chunk_data.hex()[18:20], 16)
+            imageCompressionMethod = int(chunk_data.hex()[20:22], 16)
+            imageFilterMethod = int(chunk_data.hex()[22:24], 16)
+            imageInterlaceMethod = int(chunk_data.hex()[24:26], 16)
             new_png.write(chunk_length)
             new_png.write(chunk_type)
-            i = 1
-            chunk_encoded_data = ""
-            for singleNumber in chunk_data:
-                # if i == 1:
-                #     print("R: " + str(singleNumber))
-                # elif i == 2:
-                #     print("G: " + str(singleNumber))
-                # elif i == 3:
-                #     print("B: " + str(singleNumber))
-                # elif i == 4:
-                #     print("A: " + str(singleNumber))
-                #     i = 0
-                # chunk_encoded_data += str(encodeNumber(singleNumber))
-                i += 1
-            new_png.write(bytes(chunk_encoded_data.encode()))
-
+            new_png.write(chunk_data)
+            new_png.write(crc)
+        if chunk_type2.upper() == "IDAT":
+            chunkDataBin = zlib.decompress(bytes.fromhex(chunk_data.hex()))
+            countTotalBits(int.from_bytes(chunk_data,"big"))
+            new_png.write(chunk_length)
+            new_png.write(chunk_type)
+            new_png.write(str.encode(encodeData(chunk_data.hex())))
+            new_png.write(crc)
         else:
             new_png.write(chunk_length)
             new_png.write(chunk_type)
