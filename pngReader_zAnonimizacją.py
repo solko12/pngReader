@@ -1,12 +1,15 @@
+import base64
 import math
 import random
 import time
 import zlib
 
+import crc32c
 import cv2
 import numpy as np
 import matplotlib.pyplot as plot
-from PIL import Image
+from PIL import Image, ImageDraw
+from PIL.PngImagePlugin import PngImageFile, PngInfo
 
 
 keys={"public": (0,0), "private": (0,0)}
@@ -208,6 +211,7 @@ def doFourierTransform(file):
     plot.axis('off')
     plot.show()
 
+
 def findPrime(primeBits):
     try:
         key = random.getrandbits(primeBits)
@@ -295,11 +299,34 @@ def generateRSA():
     return {"public": (e, n), "private": (d, n)}
 
 
-def encodeData(dataToEncode):
-    parts=""
-    for i in range(0, len(dataToEncode.encode()), countTotalBits(keys["public"][0])-1):
-        parts+=str(dataToEncode.encode()[i:i+countTotalBits(keys["public"][0])-1])# ^ keys["public"][0]) % keys["public"][1]
-    return parts
+def getMaxBitsDataSize(key):
+    return len(str(key[0])) - 3
+
+
+def msgToAsciiValue(msg):
+    return ''.join(str(ord(c)).zfill(3) for c in msg)
+
+
+def splitToBlocks(asciiMsg, size):
+    length = len(asciiMsg)
+    blocks = [ asciiMsg[i:i+size].ljust(size, '0') for i in range(0, length, size)]
+    return blocks
+
+
+def encryptBlock(block, publicKey):
+    return pow(block, publicKey[0], publicKey[1])
+
+
+def encryptBlockMessage(blocks, publicKey):
+    return ''.join(str(encryptBlock(int(block), publicKey)) + '\n' for block in blocks).rstrip('\n')
+
+
+def encryptLargeFile(dataToEncode, publicKey):
+    bits = getMaxBitsDataSize(publicKey)
+    asciiData = msgToAsciiValue(dataToEncode)
+    blocks = splitToBlocks(asciiData, bits)
+    encryptedMsg = encryptBlockMessage(blocks, publicKey)
+    return encryptedMsg
 
 def encodePicture(input, output):
     old_png = open(input, "rb")
@@ -314,24 +341,13 @@ def encodePicture(input, output):
     chunk_data = old_png.read(chunk_length2)
     crc = old_png.read(4)
     while chunk_data:
-        if chunk_type2.upper() == "IHDR":
-            imageWidth = int(chunk_data.hex()[0:8], 16)
-            imageHeight = int(chunk_data.hex()[8:16], 16)
-            imageDepht = int(chunk_data.hex()[16:18], 16)
-            imageColorType = int(chunk_data.hex()[18:20], 16)
-            imageCompressionMethod = int(chunk_data.hex()[20:22], 16)
-            imageFilterMethod = int(chunk_data.hex()[22:24], 16)
-            imageInterlaceMethod = int(chunk_data.hex()[24:26], 16)
+        if chunk_type2.upper() in {"IDAT"}:
             new_png.write(chunk_length)
             new_png.write(chunk_type)
-            new_png.write(chunk_data)
-            new_png.write(crc)
-        if chunk_type2.upper() == "IDAT":
-            chunkDataBin = zlib.decompress(bytes.fromhex(chunk_data.hex()))
-            countTotalBits(int.from_bytes(chunk_data,"big"))
-            new_png.write(chunk_length)
-            new_png.write(chunk_type)
-            new_png.write(str.encode(encodeData(chunk_data.hex())))
+            with open(input, "rb") as imageFile:
+                image64 = base64.b64encode(chunk_data).decode()
+            encrypted = encryptLargeFile(image64, keys["public"])
+            new_png.write(str.encode(encrypted))
             new_png.write(crc)
         else:
             new_png.write(chunk_length)
@@ -351,6 +367,7 @@ def encodePicture(input, output):
     new_png.close()
     old_png.close()
 
+
 filein = "PNGFile.png"
 fileout = "out.png"
 
@@ -361,6 +378,9 @@ print("Public key: " + str(keys["public"]) + "\nPrivate key: " + str(keys["priva
 print("Finding key time: " + str(end-start))
 
 encodePicture(filein, fileout)
+
+v_image = Image.open(fileout)
+v_image.verify()
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
