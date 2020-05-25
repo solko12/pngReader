@@ -1,16 +1,9 @@
-import base64
-import math
 import random
 import time
-import zlib
-
-import crc32c
 import cv2
 import numpy as np
 import matplotlib.pyplot as plot
 from PIL import Image, ImageDraw
-from PIL.PngImagePlugin import PngImageFile, PngInfo
-
 
 keys={"public": (0,0), "private": (0,0)}
 
@@ -296,37 +289,26 @@ def generateRSA():
     while nwd(e, fi) != 1:
         e = random.randrange(1, n)
     d = extendedEuklides(fi, e)
-    return {"public": (e, n), "private": (d, n)}
+    return {"public": {"e": e, "n": n}, "private": {"d": d, "n": n}}
 
 
 def getMaxBitsDataSize(key):
-    return len(str(key[0])) - 3
+    return len(str(key)) - 3
 
 
-def msgToAsciiValue(msg):
-    return ''.join(str(ord(c)).zfill(3) for c in msg)
+def encryptNumber(number, e, n):
+    newnumber = pow(number, e, n)
+    return newnumber
 
 
-def splitToBlocks(asciiMsg, size):
-    length = len(asciiMsg)
-    blocks = [ asciiMsg[i:i+size].ljust(size, '0') for i in range(0, length, size)]
-    return blocks
+def encryptData(imageData, publicKey):
+    new = []
+    step = countTotalBits(publicKey["n"])
+    for i in range(0, len(imageData), step):
+        hexEncryptedData = hex(encryptNumber(int(imageData[i:i+step], 16), publicKey["e"], publicKey["n"]))
+        new += hexEncryptedData
+    return new
 
-
-def encryptBlock(block, publicKey):
-    return pow(block, publicKey[0], publicKey[1])
-
-
-def encryptBlockMessage(blocks, publicKey):
-    return ''.join(str(encryptBlock(int(block), publicKey)) + '\n' for block in blocks).rstrip('\n')
-
-
-def encryptLargeFile(dataToEncode, publicKey):
-    bits = getMaxBitsDataSize(publicKey)
-    asciiData = msgToAsciiValue(dataToEncode)
-    blocks = splitToBlocks(asciiData, bits)
-    encryptedMsg = encryptBlockMessage(blocks, publicKey)
-    return encryptedMsg
 
 def encodePicture(input, output):
     old_png = open(input, "rb")
@@ -344,10 +326,9 @@ def encodePicture(input, output):
         if chunk_type2.upper() in {"IDAT"}:
             new_png.write(chunk_length)
             new_png.write(chunk_type)
-            with open(input, "rb") as imageFile:
-                image64 = base64.b64encode(chunk_data).decode()
-            encrypted = encryptLargeFile(image64, keys["public"])
-            new_png.write(str.encode(encrypted))
+            hexEncryptedDataList = encryptData(chunk_data.hex(), keys["public"])
+            for byte in hexEncryptedDataList:
+                new_png.write(bytes.fromhex(byte[2:]))
             new_png.write(crc)
         else:
             new_png.write(chunk_length)
@@ -368,7 +349,7 @@ def encodePicture(input, output):
     old_png.close()
 
 
-filein = "PNGFile.png"
+filein = "PNGFile2.png"
 fileout = "out.png"
 
 start = time.time()
@@ -378,9 +359,9 @@ print("Public key: " + str(keys["public"]) + "\nPrivate key: " + str(keys["priva
 print("Finding key time: " + str(end-start))
 
 encodePicture(filein, fileout)
-
-v_image = Image.open(fileout)
-v_image.verify()
+im = Image.open(fileout)
+im.verify()
+showImage(fileout)
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
