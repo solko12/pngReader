@@ -297,8 +297,11 @@ def getMaxBitsDataSize(key):
 
 
 def encryptNumber(number, e, n):
-    newnumber = pow(number, e, n)
-    return newnumber
+    return pow(number, e, n)
+
+
+def decryptNumber(number, d, n):
+    return pow(number, d, n)
 
 
 def encryptData(imageData, publicKey):
@@ -357,6 +360,9 @@ keys = generateRSA()
 end = time.time()
 print("Public key: " + str(keys["public"]) + "\nPrivate key: " + str(keys["private"]))
 print("Finding key time: " + str(end-start))
+
+print(encryptNumber(123, 7, 143)) #For 123 number and public key (7,143) should be 7
+print(encryptNumber(7, 103, 143)) #For 7 number and private key (103, 143) should be 123
 
 encodePicture(filein, fileout)
 im = Image.open(fileout)
