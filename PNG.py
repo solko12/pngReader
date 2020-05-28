@@ -305,16 +305,22 @@ def encryptNumber(number, e, n):
 def decryptNumber(number, d, n):
     return pow(number, d, n)
 
-def encryptData(imageData, publicKey):
-    new = []
-    step = countTotalBits(publicKey["n"])
-    for i in range(0, len(imageData), step):
-        hexEncryptedData = format(encryptNumber(int(imageData[i:i + step], 16), publicKey["e"], publicKey["n"]), 'x')
-        if len(hexEncryptedData) < 256:
-            for j in range(0, 256 - len(hexEncryptedData), 1):
-                hexEncryptedData += "0"
-        new.append(hexEncryptedData)
-    return new
+def encryptData(imageData, publicKey, blockSize, realLength):
+    newIdat = ""
+    i=0
+    while i<realLength:
+        if (i + blockSize) > realLength:
+            block = imageData[i:i + (realLength - i)]
+        else:
+            block = imageData[i:i + blockSize]
+        blockInInt = int(block, 16)
+        encryptedNumber = encryptNumber(blockInInt, publicKey["e"], publicKey["n"])
+        encryptedBlock = format(encryptedNumber, 'x')
+        while len(encryptedBlock) % 512 != 0:
+            encryptedBlock = '0'+encryptedBlock
+        newIdat += encryptedBlock
+        i += blockSize
+    return newIdat
  
 def crc32(data):     # wyliczenie crc dla data
         crc = zlib.crc32(data)
@@ -333,25 +339,39 @@ def encodePicture(input, output):
     chunk_type2 = bytearray.fromhex(chunk_type.hex()).decode()
     chunk_data = old_png.read(chunk_length2)
     crc = old_png.read(4)
-
     while chunk_data:
         if chunk_type2.upper() in {"IDAT"}:
-            hexEncryptedDataList = encryptData(chunk_data.hex(), keys["public"])   
-            data = chunk_type
-            for byte in hexEncryptedDataList:
-               data += bytes.fromhex(byte)  # chunk data po kodowaniu
-            data_length = len(data) -4  # obliczenie dlugosci daty  i -4 bo chunk type odjete
-            chunk_length3 = format(data_length & 0xFFFFFFFFF, '08x')
-            chunk_length = bytes.fromhex(chunk_length3) #
-            new_png.write(chunk_length)
+            chunkLengthDec = chunk_length2
+            realLength = 2*chunkLengthDec
+            print('orginal lenght')
+            print(realLength)
+            blockSize = 512
+            newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength)
+            #data = chunk_type
+            newLength = int(len(newIdatHex)/2)
+            newHexIdatLength = format(newLength, 'x')
+            while len(newHexIdatLength) % 8 != 0:
+                newHexIdatLength = '0' + newHexIdatLength
+            print('encrypted lenght')
+            print(2 * newLength)
+            new_png.write(bytes.fromhex(newHexIdatLength))
             new_png.write(chunk_type)
-            for byte in hexEncryptedDataList:
-                new_png.write(bytes.fromhex(byte))  
-                #data += bytes.fromhex(byte)  # chunk data po kodowaniu
-            crc = crc32(data)  #  wyliczenie crc dla daty 
-            crc = bytes.fromhex(crc)  # i zamiana wyniku na byte ze stringa
-            new_png.write(crc)  
-            #print ("oryginal", chunk_length2 ,"data size", data_length)   # zwraca  8192, 2048  lub   8192, 2176
+            new_png.write(bytes.fromhex(newIdatHex))
+            new_png.write(crc)
+            # for byte in hexEncryptedDataList:
+            #    data += bytes.fromhex(byte)  # chunk data po kodowaniu
+            # data_length = len(data) -4  # obliczenie dlugosci daty  i -4 bo chunk type odjete
+            # chunk_length3 = format(data_length & 0xFFFFFFFFF, '08x')
+            # chunk_length = bytes.fromhex(chunk_length3) #
+            # new_png.write(chunk_length)
+            # new_png.write(chunk_type)
+            # for byte in hexEncryptedDataList:
+            #     new_png.write(bytes.fromhex(byte))
+            #     #data += bytes.fromhex(byte)  # chunk data po kodowaniu
+            # crc = crc32(data)  #  wyliczenie crc dla daty
+            # crc = bytes.fromhex(crc)  # i zamiana wyniku na byte ze stringa
+            # new_png.write(crc)
+            # #print ("oryginal", chunk_length2 ,"data size", data_length)   # zwraca  8192, 2048  lub   8192, 2176
         else:
             new_png.write(chunk_length)
             new_png.write(chunk_type)
@@ -370,7 +390,7 @@ def encodePicture(input, output):
     new_png.close()
     old_png.close()
 
-filein = "PNGFile2.png"
+filein = "2.png"
 fileout = "out.png"
 
 start = time.time()
@@ -381,7 +401,6 @@ print("Finding key time: " + str(end - start))
 
 print(encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) should be 7
 print(encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
-
 encodePicture(filein, fileout)
 im = Image.open(fileout)
 im.verify()
