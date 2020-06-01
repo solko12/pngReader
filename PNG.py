@@ -350,7 +350,6 @@ def encryptData(imageData, publicKey, blockSize, realLength):
         else:
             block = imageData[i:i + blockSize]
         blockDataSize = len(block)
-        print("Block Size Before Encode: "+str(blockDataSize))
         blockInInt = int(block, 16)
         encryptedNumber = encryptNumber(blockInInt, publicKey["e"], publicKey["n"])
         encryptedBlock = format(encryptedNumber, 'x')
@@ -360,8 +359,6 @@ def encryptData(imageData, publicKey, blockSize, realLength):
         else:
             encryptedBlock = block
         newIdat += encryptedBlock
-        blockDataSize = len(encryptedBlock)
-        print("Block Size After Encode: "+str(blockDataSize))
         i += blockSize
         blocks += block
     newLength = int(len(imageData) / 2)
@@ -521,7 +518,7 @@ def HexStringToPNG(filename, newFile):
     file.close()
 
 
-filein = "1.png"
+filein = "PNGFile.png"
 fileout = "out.png"
 
 start = time.time()
@@ -534,11 +531,8 @@ print(encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) shoul
 print(encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
 #encodePicture2(filein, fileout, 1)
 encodePicture(filein, fileout, keys)
-#im = Image.open(fileout)
-#im.verify()
-#showImage(fileout)
-dekodowanie(filein , "original.txt")
-dekodowanie(fileout, "encoded.txt")
+im = Image.open(fileout)
+showImage(fileout)
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
