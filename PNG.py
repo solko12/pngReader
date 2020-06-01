@@ -442,25 +442,11 @@ def encodePicture(input, output, method):
             print("Równe bytes length? Old: "+str(len(chunk_data))+"||New: " + str(len(bytesData)))
             print(len(chunk_data) == len(bytesData))
 
-            new_png.write(bytes.fromhex(newHexIdatLength))
-            #new_png.write(chunk_length)
+            #new_png.write(bytes.fromhex(newHexIdatLength))
+            new_png.write(chunk_length)
             new_png.write(chunk_type)
             new_png.write(bytes.fromhex(newIdatHex))
             new_png.write(crc)
-            # for byte in hexEncryptedDataList:
-            #    data += bytes.fromhex(byte)  # chunk data po kodowaniu
-            # data_length = len(data) -4  # obliczenie dlugosci daty  i -4 bo chunk type odjete
-            # chunk_length3 = format(data_length & 0xFFFFFFFFF, '08x')
-            # chunk_length = bytes.fromhex(chunk_length3) #
-            # new_png.write(chunk_length)
-            # new_png.write(chunk_type)
-            # for byte in hexEncryptedDataList:
-            #     new_png.write(bytes.fromhex(byte))
-            #     #data += bytes.fromhex(byte)  # chunk data po kodowaniu
-            #crc = crc32(bytes.fromhex(newIdatHex))  #  wyliczenie crc dla daty
-            #crc = bytes.fromhex(crc)  # i zamiana wyniku na byte ze stringa
-            #new_png.write(crc)
-            # #print ("oryginal", chunk_length2 ,"data size", data_length)   # zwraca  8192, 2048  lub   8192, 2176
         else:
             new_png.write(chunk_length)
             new_png.write(chunk_type)
@@ -480,44 +466,6 @@ def encodePicture(input, output, method):
     old_png.close()
 
 
-def encodePicture2(input, output, method):
-    old_png = open(input, "rb")
-    new_png = open(output, 'wb')
-    old_png_in_HEX = old_png.read().hex()
-    posInText = old_png_in_HEX.find("49444154")
-    if posInText != -1:
-        length = old_png_in_HEX[(posInText - 8):posInText]
-        chunkLengthDec = int(length, 16)
-        realLength = 2 * chunkLengthDec
-        idatHex = old_png_in_HEX[(posInText + 8):(posInText + 8 + realLength)]
-        newIdat = ''
-        i = 0
-        print('Original Length: ')
-        print(realLength)
-        blockSize = 512
-        newIdat = encryptData(idatHex, keys["public"], blockSize, realLength)
-        newIdatLength = int(len(newIdat) / 2)
-        print('Encrypted Length')
-        print(2 * newIdatLength)
-        newIdatLengthHex = format(newIdatLength, 'x')
-
-        # Length of the chunk length should be dividable in 8
-        while len(newIdatLengthHex) % 8 != 0:
-            newIdatLengthHex = '0' + newIdatLengthHex
-        # zawartosc pliku przed IDAT + nowa dlugosc + naglowek 'IDAT + nowe dane + reszta pliku
-        data = old_png_in_HEX[0:(posInText - 8)] + newIdatLengthHex + old_png_in_HEX[posInText:(
-                posInText + 8)] + newIdat + old_png_in_HEX[(posInText + realLength):]
-        new_png.write(bytes.fromhex(data))
-        new_png.close()
-
-
-def HexStringToPNG(filename, newFile):
-    data = bytes.fromhex(newFile)
-    with open(filename, 'wb') as file:
-        file.write(data)
-    file.close()
-
-
 filein = "PNGFile.png"
 fileout = "out.png"
 
@@ -526,13 +474,14 @@ keys = generateRSA()
 end = time.time()
 print("Public key: " + str(keys["public"]) + "\nPrivate key: " + str(keys["private"]))
 print("Finding key time: " + str(end - start))
+print("::::!TESTS!::::")
+print(7 == encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) should be 7
+print(123 == encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
 
-print(encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) should be 7
-print(encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
-#encodePicture2(filein, fileout, 1)
+start = time.time()
 encodePicture(filein, fileout, keys)
-im = Image.open(fileout)
-showImage(fileout)
+end = time.time()
+print("Encoding time: " + str(end - start))
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
