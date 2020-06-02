@@ -1,4 +1,5 @@
 import random
+import struct
 import time
 import cv2
 import numpy as np
@@ -279,14 +280,6 @@ def extendedEuklides(a, b):
     return x
 
 
-# This method count number's number of bits
-def countTotalBits(num):
-    # convert number into it's binary and
-    # remove first two characters 0b.
-    binary = bin(num)[2:]
-    return len(binary)
-
-
 def generateRSA():
     p = findPrime(primeBitsCount)
     q = findPrime(primeBitsCount)
@@ -381,11 +374,6 @@ def encryptDataWithBuiltInLib(imageData, publicKey, realLength):
 #         newIdat += rsa.encrypt(block)
     return imageData
 
-
-def crc32(data):     # wyliczenie crc dla data
-        crc = zlib.crc32(data)
-        return format(crc & 0xFFFFFFFFF, '08x')
-
 # Method is the type of encryption 1: own RSA encryption, 2: library RSA encryption
 def encodePicture(input, output, method):
     old_png = open(input, "rb")
@@ -420,10 +408,10 @@ def encodePicture(input, output, method):
             realLength = 2 * chunkLengthDec
             blockSize = int(primeBitsCount/2)
             if method == 1:
-                newIdatHex = encryptData((chunk_data).hex(), keys["public"], blockSize, realLength)
+                newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength)
             #data = chunk_type
             elif method == 2:
-                newIdatHex = encryptDataWithBuiltInLib(chunk_data.hex(), keys["public"], realLength)
+                newIdatHex = zlib.compress(encryptDataWithBuiltInLib(zlib.decompress(chunk_data.hex()), keys["public"], realLength))
             else:
                 newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength)
             newLength = int(len(newIdatHex)/2)
@@ -436,7 +424,7 @@ def encodePicture(input, output, method):
             print(chunk_length2)
             print('encrypted lenght')
             print(newLength)
-            print("Równe hex length? Old: "+ str(len(chunk_data.hex())) + "||New: " + str(len(newIdatHex)))
+            print("Równe hex length? Old: " + str(len(chunk_data.hex())) + "||New: " + str(len(newIdatHex)))
             print(len(chunk_data.hex()) == len(newIdatHex))
             bytesData = bytes.fromhex(newIdatHex)
             print("Równe bytes length? Old: "+str(len(chunk_data))+"||New: " + str(len(bytesData)))
@@ -445,8 +433,11 @@ def encodePicture(input, output, method):
             #new_png.write(bytes.fromhex(newHexIdatLength))
             new_png.write(chunk_length)
             new_png.write(chunk_type)
+            calc_crc = zlib.crc32(chunk_type + bytes.fromhex(newIdatHex)) & 0xffffffff
+            calc_crc = struct.pack('!I', calc_crc)
             new_png.write(bytes.fromhex(newIdatHex))
-            new_png.write(crc)
+            #new_png.write(crc)
+            new_png.write(calc_crc)
         else:
             new_png.write(chunk_length)
             new_png.write(chunk_type)
@@ -466,22 +457,18 @@ def encodePicture(input, output, method):
     old_png.close()
 
 
-filein = "PNGFile.png"
-fileout = "out.png"
-
 start = time.time()
 keys = generateRSA()
 end = time.time()
 print("Public key: " + str(keys["public"]) + "\nPrivate key: " + str(keys["private"]))
 print("Finding key time: " + str(end - start))
-print("::::!TESTS!::::")
-print(7 == encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) should be 7
-print(123 == encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
+# print("::::!TESTS!::::")
+# print(7 == encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) should be 7
+# print(123 == encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
+filein = "1.png"
+fileout = "out.png"
 
-start = time.time()
-encodePicture(filein, fileout, keys)
-end = time.time()
-print("Encoding time: " + str(end - start))
+encodePicture(filein, fileout, 1)
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
@@ -505,7 +492,10 @@ while (tryb != 9):
     elif tryb == 4:
         picture_to_encode = input("Podaj nazwe pliku do zakodowania: ")
         picture_after_encode = input("Podaj nazwe pliku wynikowego: ")
-        encodePicture(picture_to_encode, picture_after_encode)
+        start = time.time()
+        encodePicture(picture_to_encode, picture_after_encode, 1)
+        end = time.time()
+        print("Encoding time: " + str(end - start))
     else:
         print("Błędny tryb! Wybierz z listy prawidłowy!!")
     tryb = int(input("Wybierz tryb działania "
