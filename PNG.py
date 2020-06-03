@@ -288,7 +288,7 @@ def generateRSA():
     e = random.randrange(1, n)
     while nwd(e, fi) != 1:
         e = random.randrange(1, n)
-    d = extendedEuklides(fi, e)
+    d = extendedEuklides(e, fi)
     return {"public": {"e": e, "n": n}, "private": {"d": d, "n": n}}
 
 
@@ -304,39 +304,29 @@ def decryptNumber(number, d, n):
     return pow(number, d, n)
 
 
-def decryptData(imageData, privateKey, blockSize, realLength):
+def decryptData(imageData, privateKey, blockSize, realLength, d, n):
     newIdat = ""
-    blocks = ""
     i = 0
-    #print("Old Length in decryptData: "+str(realLength))
+    blockSize *= 4
+    #print("Old Length in encryptData: "+str(realLength))
     while i < realLength:
-        if (i + blockSize) > realLength:
-            block = imageData[i:i + (realLength - i)]
-        else:
-            block = imageData[i:i + blockSize]
-        blockDataSize = len(block)
-        print("Block Size Before Encode: "+str(blockDataSize))
-        blockInInt = int(block, 16)
-        decryptedNumber = decryptNumber(blockInInt, privateKey["d"], privateKey["n"])
+        block = imageData[i:i + blockSize]
+        flag = False
+        decHexFixer = ""
+        decBlockInInt = int(block, 16)
+        decryptedNumber = decryptNumber(decBlockInInt, d, n)
         decryptedBlock = format(decryptedNumber, 'x')
-        while len(decryptedBlock) % blockDataSize != 0:
+        while len(decryptedBlock) % 2 != 0:
             decryptedBlock = '0' + decryptedBlock
         newIdat += decryptedBlock
-        blockDataSize = len(decryptedBlock)
-        print("Block Size After Encode: "+str(blockDataSize))
         i += blockSize
-        blocks += block
-    newLength = int(len(imageData) / 2)
-    print("(DLUGOSCI) WSZYSTKIE BLOKI = NOWY IDAT : " + str(len(newIdat) == len(blocks)))
-    #print("New Length in decryptData: " + str(newLength*2))
     return newIdat
 
 
-def encryptData(imageData, publicKey, blockSize, realLength):
+def encryptData(imageData, publicKey, blockSize, realLength, n, e):
     newIdat = ""
     blocks = ""
     i = 0
-    #print("Old Length in encryptData: "+str(realLength))
     while i < realLength:
         if (i + blockSize) > realLength:
             block = imageData[i:i + (realLength - i)]
@@ -344,19 +334,13 @@ def encryptData(imageData, publicKey, blockSize, realLength):
             block = imageData[i:i + blockSize]
         blockDataSize = len(block)
         blockInInt = int(block, 16)
-        encryptedNumber = encryptNumber(blockInInt, publicKey["e"], publicKey["n"])
+        encryptedNumber = encryptNumber(blockInInt, e, n)
         encryptedBlock = format(encryptedNumber, 'x')
-        if len(encryptedBlock) < blockDataSize:
-            while len(encryptedBlock) % blockDataSize != 0:
-                encryptedBlock = '0' + encryptedBlock
-        else:
-            encryptedBlock = block
+        while len(encryptedBlock) % blockSize != 0:
+            encryptedBlock = '0' + encryptedBlock
         newIdat += encryptedBlock
         i += blockSize
-        blocks += block
-    newLength = int(len(imageData) / 2)
-    print("(DLUGOSCI) WSZYSTKIE BLOKI = NOWY IDAT : " + str(len(newIdat) == len(blocks)))
-    #print("New Length in encryptData: " + str(newLength*2))
+
     return newIdat
 
 
@@ -374,8 +358,9 @@ def encryptDataWithBuiltInLib(imageData, publicKey, realLength):
 #         newIdat += rsa.encrypt(block)
     return imageData
 
+
 # Method is the type of encryption 1: own RSA encryption, 2: library RSA encryption
-def encodePicture(input, output, method):
+def encodePicture(input, output, method, n, e):
     old_png = open(input, "rb")
     new_png = open(output, 'wb')
     for i in range(8):
@@ -406,14 +391,97 @@ def encodePicture(input, output, method):
             #chunkLengthDec = chunk_length2
             chunkLengthDec = int.from_bytes(chunk_length, byteorder='big')
             realLength = 2 * chunkLengthDec
-            blockSize = int(primeBitsCount/2)
+            blockSize = int(primeBitsCount/8)
             if method == 1:
-                newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength)
+                newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength, n, e)
             #data = chunk_type
             elif method == 2:
                 newIdatHex = zlib.compress(encryptDataWithBuiltInLib(zlib.decompress(chunk_data.hex()), keys["public"], realLength))
             else:
-                newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength)
+                newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength, n, e, d)
+            newLength = int(len(newIdatHex)/2)
+            newHexIdatLength = format(newLength, 'x')
+            while len(newHexIdatLength) % 8 != 0:
+                newHexIdatLength = '0' + newHexIdatLength
+            print('orginal length hex')
+            print(realLength)
+            print("from chunkt")
+            print(chunk_length2)
+            print('encrypted lenght')
+            print(newLength)
+            print("Równe hex length? Old: " + str(len(chunk_data.hex())) + "||New: " + str(len(newIdatHex)))
+            print(len(chunk_data.hex()) == len(newIdatHex))
+            bytesData = bytes.fromhex(newIdatHex)
+            print("Równe bytes length? Old: "+str(len(chunk_data))+"||New: " + str(len(bytesData)))
+            print(len(chunk_data) == len(bytesData))
+
+            new_png.write(bytes.fromhex(newHexIdatLength))
+            #new_png.write(chunk_length)
+            new_png.write(chunk_type)
+            calc_crc = zlib.crc32(chunk_type + bytes.fromhex(newIdatHex)) & 0xffffffff
+            calc_crc = struct.pack('!I', calc_crc)
+            new_png.write(bytes.fromhex(newIdatHex))
+            #new_png.write(crc)
+            new_png.write(calc_crc)
+        else:
+            new_png.write(chunk_length)
+            new_png.write(chunk_type)
+            new_png.write(chunk_data)
+            new_png.write(crc)
+        chunk_length = old_png.read(4)
+        chunk_length2 = int.from_bytes(chunk_length, byteorder='big')
+        chunk_type = old_png.read(4)
+        chunk_type2 = bytearray.fromhex(chunk_type.hex()).decode()
+        chunk_data = old_png.read(chunk_length2)
+        crc = old_png.read(4)
+    new_png.write(chunk_length)
+    new_png.write(chunk_type)
+    #new_png.write(chunk_data)
+    new_png.write(crc)
+    new_png.close()
+    old_png.close()
+
+
+# Method is the type of decryption 1: own RSA decryption, 2: library RSA decryption
+def decodePicture(input, output, method, n, d):
+    old_png = open(input, "rb")
+    new_png = open(output, 'wb')
+    for i in range(8):
+        signature = old_png.read(1)
+        new_png.write(signature)
+    height = 0
+    width = 0
+    colortype = ""
+    chunk_length = old_png.read(4)
+    chunk_length2 = int.from_bytes(chunk_length, byteorder='big')
+    chunk_type = old_png.read(4)
+    chunk_type2 = bytearray.fromhex(chunk_type.hex()).decode()
+    chunk_data = old_png.read(chunk_length2)
+    crc = old_png.read(4)
+    while chunk_data:
+        if chunk_type2.upper() == "IHDR":
+            width = int(chunk_data.hex()[0:8], 16)
+            print("Image Width: ", width)
+            height = int(chunk_data.hex()[8:16], 16)
+            print("Image Height: ", height)
+            variable = int(chunk_data.hex()[18:20], 16)
+            print("Color Type: ", variable)
+            new_png.write(chunk_length)
+            new_png.write(chunk_type)
+            new_png.write(chunk_data)
+            new_png.write(crc)
+        elif chunk_type2.upper() in {"IDAT"}:
+            #chunkLengthDec = chunk_length2
+            chunkLengthDec = int.from_bytes(chunk_length, byteorder='big')
+            realLength = 2 * chunkLengthDec
+            blockSize = int(primeBitsCount/8)
+            if method == 1:
+                newIdatHex = decryptData(chunk_data.hex(), keys["private"], blockSize, realLength, d, n)
+            #data = chunk_type
+            elif method == 2:
+                newIdatHex = zlib.compress(encryptDataWithBuiltInLib(zlib.decompress(chunk_data.hex()), keys["public"], realLength))
+            else:
+                newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength, n, e, d)
             newLength = int(len(newIdatHex)/2)
             newHexIdatLength = format(newLength, 'x')
             while len(newHexIdatLength) % 8 != 0:
@@ -457,18 +525,25 @@ def encodePicture(input, output, method):
     old_png.close()
 
 
+
 start = time.time()
 keys = generateRSA()
 end = time.time()
 print("Public key: " + str(keys["public"]) + "\nPrivate key: " + str(keys["private"]))
 print("Finding key time: " + str(end - start))
-# print("::::!TESTS!::::")
-# print(7 == encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) should be 7
-# print(123 == encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
-filein = "1.png"
+#print("::::!TESTS!::::")
+#print(7 == encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) should be 7
+#print(123 == encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
+filein = "PNGFile4.png"
 fileout = "out.png"
+decodeOut = "decoded.png"
 
-encodePicture(filein, fileout, 1)
+n = keys["public"]["n"]
+e = keys["public"]["e"]
+d = keys["private"]["d"]
+
+encodePicture(filein, fileout, 1, n, e)
+decodePicture(fileout, decodeOut, 1, n, d)
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
