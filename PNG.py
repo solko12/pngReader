@@ -228,6 +228,7 @@ def findPrime(primeBits):
     # It's helpful for working in big numbers
     except OverflowError:
         ans = float('inf')
+    return key
 
 
 # Function is looking for biggest common divide for a and b, it's implementation from web
@@ -562,7 +563,7 @@ print("Finding key time: " + str(end - start))
 #print("::::!TESTS!::::")
 #print(7 == encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) should be 7
 #print(123 == encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
-filein = "PNGFile4.png"
+filein = "2.png"
 fileout = "out.png"
 decodeOut = "decoded.png"
 
