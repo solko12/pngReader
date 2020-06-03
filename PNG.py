@@ -213,25 +213,31 @@ def doFourierTransform(file):
     plot.show()
 
 
+# Function searching for prime number in number of bits got in argument primeBits
 def findPrime(primeBits):
     try:
+        # There is finding key which is checked by isPrime for being prime
         key = random.getrandbits(primeBits)
         if isPrime(key):
+            # If is return it
             return key
         else:
+            # If not, look for another candidate
             while not isPrime(key):
                 key = random.getrandbits(primeBits)
+    # It's helpful for working in big numbers
     except OverflowError:
         ans = float('inf')
-    return key
 
 
+# Function is looking for biggest common divide for a and b, it's implementation from web
 def nwd(a, b):
     while b:
         a, b = b, a % b
     return a
 
 
+# Function checked for being prime by number in k Miller-Rabin's tests
 def isPrime(number, k=128):
     # Test if n is not even.
     # But care, 2 is prime !
@@ -245,7 +251,7 @@ def isPrime(number, k=128):
     while d & 1 == 0:
         s += 1
         d //= 2
-    # do k tests
+    # do k Miller-Rabin's tests
     for _ in range(k):
         a = random.randrange(2, number - 1)
         x = pow(a, d, number)
@@ -261,86 +267,108 @@ def isPrime(number, k=128):
     return True
 
 
+# Function is implementation of extended Euklides algorithm
 def extendedEuklides(a, b):
+    # Start initial values
     u = 1
     w = a
     x = 0
     z = b
     while w != 0:
+        # if w<z swap u with x and w with z
         if w < z:
             u, x = x, u
             w, z = z, w
+        # make new values of q, u and w
         q = w // z
         u = u - q * x
         w = w - q * z
+    # If z!=1 there is not number x
     if z != 1:
         return False
+    # if x < 0 make it positive by adding b
     if x < 0:
         x = x + b
     return x
 
 
+# Function generates RSA keys
 def generateRSA():
+    # Find two big prime numbers
     p = findPrime(primeBitsCount)
     q = findPrime(primeBitsCount)
+    # Compute fi function
     fi = (p - 1) * (q - 1)
+    # And n
     n = p * q
+    # Look for e<n which is basicly dividable by fi
     e = random.randrange(1, n)
     while nwd(e, fi) != 1:
         e = random.randrange(1, n)
+    # Compute d
     d = extendedEuklides(e, fi)
+    # Return keys Public(e,n) and Private(d,n)
     return {"public": {"e": e, "n": n}, "private": {"d": d, "n": n}}
 
 
-def getMaxBitsDataSize(key):
-    return len(str(key)) - 3
-
-
+# Function encrypt number got in argument by RSA algorithm
 def encryptNumber(number, e, n):
     return pow(number, e, n)
 
 
+# Function decrypt number got in argument by RSA algorithm
 def decryptNumber(number, d, n):
     return pow(number, d, n)
 
 
+# Function decrypt data got in argument by ECB method
 def decryptData(imageData, privateKey, blockSize, realLength, d, n):
     newIdat = ""
     i = 0
+    # Encrypted data is 4 times bigger than not encrypted
     blockSize *= 4
-    #print("Old Length in encryptData: "+str(realLength))
+    # While there is still data
     while i < realLength:
+        # Get block in correct size
         block = imageData[i:i + blockSize]
-        flag = False
-        decHexFixer = ""
+        # Change into int
         decBlockInInt = int(block, 16)
+        # Decrypt number
         decryptedNumber = decryptNumber(decBlockInInt, d, n)
+        # And make it hex
         decryptedBlock = format(decryptedNumber, 'x')
+        # Make length dividable by 2
         while len(decryptedBlock) % 2 != 0:
             decryptedBlock = '0' + decryptedBlock
+        # Add to new idat data
         newIdat += decryptedBlock
         i += blockSize
     return newIdat
 
 
+# Function encrypt data got in imageData argument
 def encryptData(imageData, publicKey, blockSize, realLength, n, e):
     newIdat = ""
-    blocks = ""
     i = 0
+    # While there is still data
     while i < realLength:
+        # Get correct blocks
         if (i + blockSize) > realLength:
             block = imageData[i:i + (realLength - i)]
         else:
             block = imageData[i:i + blockSize]
-        blockDataSize = len(block)
+        # Change it into int
         blockInInt = int(block, 16)
+        # Encrypt number
         encryptedNumber = encryptNumber(blockInInt, e, n)
+        # And make it hex
         encryptedBlock = format(encryptedNumber, 'x')
+        # Align size to blockSize length
         while len(encryptedBlock) % blockSize != 0:
             encryptedBlock = '0' + encryptedBlock
+        # And add it into new idat data
         newIdat += encryptedBlock
         i += blockSize
-
     return newIdat
 
 
