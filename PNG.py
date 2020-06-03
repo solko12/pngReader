@@ -4,6 +4,7 @@ import time
 import cv2
 import numpy as np
 import matplotlib.pyplot as plot
+import rsa as rsa
 from PIL import Image, ImageDraw, ImageFile, ImagePalette, _binary
 import zlib
 import io
@@ -11,9 +12,12 @@ import io
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import binascii
+
+from rsa import PublicKey, PrivateKey
+
 lastChunkSize = 0
 primeBitsCount = 512
-keys = {"public": (0, 0), "private": (0, 0)}
+keys = {"public": (0, 0), "private": (0, 0, 0, 0)}
 
 def dekodowanie(wejscie, wyjscie):
     file = open(wejscie, "rb")
@@ -309,7 +313,7 @@ def generateRSA():
     # Compute d
     d = extendedEuklides(e, fi)
     # Return keys Public(e,n) and Private(d,n)
-    return {"public": {"e": e, "n": n}, "private": {"d": d, "n": n}}
+    return {"public": {"e": e, "n": n}, "private": {"d": d, "n": n, "p":p,"q":q}}
 
 
 # Function encrypt number got in argument by RSA algorithm
@@ -323,7 +327,7 @@ def decryptNumber(number, d, n):
 
 
 # Function decrypt data got in argument by ECB method
-def decryptData(imageData, privateKey, blockSize, realLength, d, n):
+def decryptData(imageData, blockSize, realLength, d, n):
     newIdat = ""
     i = 0
     # Encrypted data is 4 times bigger than not encrypted
@@ -353,7 +357,7 @@ def decryptData(imageData, privateKey, blockSize, realLength, d, n):
 
 
 # Function encrypt data got in imageData argument
-def encryptData(imageData, publicKey, blockSize, realLength, n, e):
+def encryptData(imageData, blockSize, realLength, n, e):
     newIdat = ""
     i = 0
     # While there is still data
@@ -380,22 +384,6 @@ def encryptData(imageData, publicKey, blockSize, realLength, n, e):
     return newIdat
 
 
-
-def encryptDataWithBuiltInLib(imageData, publicKey, realLength):
-    newIdat = ""
-#     i = 0
-#     blockSize = 128
-#     key = RSA.construct(publicKey["n"], publicKey["e"])
-#     rsa = RSA.importKey(key)
-#     while i < realLength:
-#         if (i + blockSize) > realLength:
-#             block = imageData[i:i + (realLength - i)]
-#         else:
-#             block = imageData[i:i + blockSize]
-#         newIdat += rsa.encrypt(block)
-    return imageData
-
-
 # Method is the type of encryption 1: own RSA encryption, 2: library RSA encryption
 def encodePicture(input, output, method, n, e):
     old_png = open(input, "rb")
@@ -419,12 +407,13 @@ def encodePicture(input, output, method, n, e):
             realLength = 2 * chunkLengthDec
             blockSize = int(primeBitsCount/8)
             if method == 1:
-                newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength, n, e)
+                newIdatHex = encryptData(chunk_data.hex(), blockSize, realLength, n, e)
             #data = chunk_type
             elif method == 2:
-                newIdatHex = zlib.compress(encryptDataWithBuiltInLib(zlib.decompress(chunk_data.hex()), keys["public"], realLength))
+                key = PublicKey(n, e)
+                newIdatHex = rsa.encrypt(chunk_data, key).hex()
             else:
-                newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength, n, e, d)
+                newIdatHex = encryptData(chunk_data.hex(), blockSize, realLength, n, e)
             newLength = int(len(newIdatHex)/2)
             newHexIdatLength = format(newLength, 'x')
             while len(newHexIdatLength) % 8 != 0:
@@ -460,7 +449,7 @@ def encodePicture(input, output, method, n, e):
 
 
 # Method is the type of decryption 1: own RSA decryption, 2: library RSA decryption
-def decodePicture(input, output, method, n, d):
+def decodePicture(input, output, method, n, d, e, p, q):
     old_png = open(input, "rb")
     new_png = open(output, 'wb')
     for i in range(8):
@@ -482,12 +471,13 @@ def decodePicture(input, output, method, n, d):
             realLength = 2 * chunkLengthDec
             blockSize = int(primeBitsCount/8)
             if method == 1:
-                newIdatHex = decryptData(chunk_data.hex(), keys["private"], blockSize, realLength, d, n)
+                newIdatHex = decryptData(chunk_data.hex(), blockSize, realLength, d, n)
             #data = chunk_type
             elif method == 2:
-                newIdatHex = zlib.compress(encryptDataWithBuiltInLib(zlib.decompress(chunk_data.hex()), keys["public"], realLength))
+                key = PrivateKey(n, e, d, p, q)
+                newIdatHex = rsa.decrypt(chunk_data, key)
             else:
-                newIdatHex = encryptData(chunk_data.hex(), keys["public"], blockSize, realLength, n, e, d)
+                newIdatHex = encryptData(chunk_data.hex(), blockSize, realLength, n, e, d)
             newLength = int(len(newIdatHex)/2)
             newHexIdatLength = format(newLength, 'x')
             while len(newHexIdatLength) % 8 != 0:
@@ -507,11 +497,11 @@ def decodePicture(input, output, method, n, d):
             new_png.write(bytes.fromhex(newHexIdatLength))
             #new_png.write(chunk_length)
             new_png.write(chunk_type)
-            calc_crc = zlib.crc32(chunk_type + bytes.fromhex(newIdatHex)) & 0xffffffff
-            calc_crc = struct.pack('!I', calc_crc)
+            #calc_crc = zlib.crc32(chunk_type + bytes.fromhex(newIdatHex)) & 0xffffffff
+            #calc_crc = struct.pack('!I', calc_crc)
             new_png.write(bytes.fromhex(newIdatHex))
-            #new_png.write(crc)
-            new_png.write(calc_crc)
+            new_png.write(crc)
+            #new_png.write(calc_crc)
         else:
             new_png.write(chunk_length)
             new_png.write(chunk_type)
@@ -547,9 +537,11 @@ decodeOut = "decoded.png"
 n = keys["public"]["n"]
 e = keys["public"]["e"]
 d = keys["private"]["d"]
+p = keys["private"]["p"]
+q = keys["private"]["q"]
 
 encodePicture(filein, fileout, 1, n, e)
-decodePicture(fileout, decodeOut, 1, n, d)
+decodePicture(fileout, decodeOut, 1, n, d, e, p, q)
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
