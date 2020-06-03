@@ -384,6 +384,75 @@ def encryptData(imageData, blockSize, realLength, n, e):
     return newIdat
 
 
+def encryptDataCBC(imageData, blockSize, realLength, n, e):
+    newIdat = ""
+    i = 0
+    # While there is still data
+    while i < realLength:
+        # Get correct blocks
+        if (i + blockSize) > realLength:
+            block = imageData[i:i + (realLength - i)]
+        else:
+            block = imageData[i:i + blockSize]
+        if len(block) < blockSize:
+            lastChunkSize = len(block)
+        # Change it into int
+        blockInInt = int(block, 16)
+        # Encrypt first block
+        if (i==0):
+            encryptedNumber = encryptNumber(blockInInt, e, n)
+        # Encrypt other blocks
+        if(i!=0):
+            CBCblock = blockInInt ^ LastBlock
+            encryptedNumber = encryptNumber(CBCblock, e, n)
+        # Remember last encrypted block
+        LastBlock=encryptedNumber
+        # And make encryptedNumber hex
+        encryptedBlock = format(encryptedNumber, 'x')
+        # Align size to blockSize length
+        while len(encryptedBlock) % blockSize != 0:
+            encryptedBlock = '0' + encryptedBlock
+        # And add it into new idat data
+        newIdat += encryptedBlock
+        i += blockSize
+    return newIdat
+
+def decryptDataCBC(imageData, blockSize, realLength, d, n):
+    newIdat = ""
+    i = 0
+    # Encrypted data is 4 times bigger than not encrypted
+    blockSize *= 4
+    # While there is still data
+    while i < realLength:
+        # Get block in correct size
+        block = imageData[i:i + blockSize]
+        # Change into int
+        decBlockInInt = int(block, 16)
+        # Decrypt first number
+        if (i==0):
+            decryptedNumber = decryptNumber(decBlockInInt, d, n)
+        # Encrypt other blocks
+        if (i!=0):
+            decryptedNumber = decryptNumber(decBlockInInt, d, n)
+            decryptedNumber = decryptedNumber ^ LastBlock
+        # Remember last encrypted block
+        #LastBlock = decryptedNumber
+        LastBlock = decBlockInInt
+        # And make it hex
+        decryptedBlock = format(decryptedNumber, 'x')
+        # Checking if it is last block
+        if i + blockSize + 1 > realLength:
+            while len(decryptedBlock) < lastChunkSize:
+                decryptedBlock = '0' + decryptedBlock
+        # Make length dividable by 2
+        else:
+            while len(decryptedBlock) % int(blockSize/4) != 0:
+                decryptedBlock = '0' + decryptedBlock
+        # Add to new idat data
+        newIdat += decryptedBlock
+        i += blockSize
+    return newIdat
+
 def encryptDataLib(imageData, blockSize, realLength, n, e):
     newIdat = ""
     i = 0
@@ -467,6 +536,8 @@ def encodePicture(input, output, method, n, e):
             #data = chunk_type
             elif method == 2:
                 newIdatHex = encryptDataLib(chunk_data.hex(), blockSize, realLength, n, e)
+            elif method == 3:
+                newIdatHex = encryptDataCBC(chunk_data.hex(), blockSize, realLength, n, e)
             else:
                 newIdatHex = encryptData(chunk_data.hex(), blockSize, realLength, n, e)
             newLength = int(len(newIdatHex)/2)
@@ -530,8 +601,10 @@ def decodePicture(input, output, method, n, d, e, p, q):
             #data = chunk_type
             elif method == 2:
                 newIdatHex = decryptDataLib(chunk_data.hex(), blockSize, realLength, d, n)
+            elif method == 3:
+                newIdatHex = decryptDataCBC(chunk_data.hex(), blockSize, realLength, d, n)
             else:
-                newIdatHex = encryptData(chunk_data.hex(), blockSize, realLength, n, e, d)
+                newIdatHex = decryptData(chunk_data.hex(), blockSize, realLength, n, e, d)
             newLength = int(len(newIdatHex)/2)
             newHexIdatLength = format(newLength, 'x')
             while len(newHexIdatLength) % 8 != 0:
