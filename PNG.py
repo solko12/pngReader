@@ -11,7 +11,7 @@ import io
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import binascii
-
+lastChunkSize = 0
 primeBitsCount = 512
 keys = {"public": (0, 0), "private": (0, 0)}
 
@@ -338,9 +338,14 @@ def decryptData(imageData, privateKey, blockSize, realLength, d, n):
         decryptedNumber = decryptNumber(decBlockInInt, d, n)
         # And make it hex
         decryptedBlock = format(decryptedNumber, 'x')
+        # Checking if it is last block
+        if i + blockSize + 1 > realLength:
+            while len(decryptedBlock) < lastChunkSize:
+                decryptedBlock = '0' + decryptedBlock
         # Make length dividable by 2
-        while len(decryptedBlock) % 2 != 0:
-            decryptedBlock = '0' + decryptedBlock
+        else:
+            while len(decryptedBlock) % int(blockSize/4) != 0:
+                decryptedBlock = '0' + decryptedBlock
         # Add to new idat data
         newIdat += decryptedBlock
         i += blockSize
@@ -358,6 +363,8 @@ def encryptData(imageData, publicKey, blockSize, realLength, n, e):
             block = imageData[i:i + (realLength - i)]
         else:
             block = imageData[i:i + blockSize]
+        if len(block) < blockSize:
+            lastChunkSize = len(block)
         # Change it into int
         blockInInt = int(block, 16)
         # Encrypt number
@@ -371,6 +378,7 @@ def encryptData(imageData, publicKey, blockSize, realLength, n, e):
         newIdat += encryptedBlock
         i += blockSize
     return newIdat
+
 
 
 def encryptDataWithBuiltInLib(imageData, publicKey, realLength):
@@ -405,18 +413,7 @@ def encodePicture(input, output, method, n, e):
     chunk_data = old_png.read(chunk_length2)
     crc = old_png.read(4)
     while chunk_data:
-        if chunk_type2.upper() == "IHDR":
-            width = int(chunk_data.hex()[0:8], 16)
-            print("Image Width: ", width)
-            height = int(chunk_data.hex()[8:16], 16)
-            print("Image Height: ", height)
-            variable = int(chunk_data.hex()[18:20], 16)
-            print("Color Type: ", variable)
-            new_png.write(chunk_length)
-            new_png.write(chunk_type)
-            new_png.write(chunk_data)
-            new_png.write(crc)
-        elif chunk_type2.upper() in {"IDAT"}:
+        if chunk_type2.upper() in {"IDAT"}:
             #chunkLengthDec = chunk_length2
             chunkLengthDec = int.from_bytes(chunk_length, byteorder='big')
             realLength = 2 * chunkLengthDec
@@ -432,26 +429,16 @@ def encodePicture(input, output, method, n, e):
             newHexIdatLength = format(newLength, 'x')
             while len(newHexIdatLength) % 8 != 0:
                 newHexIdatLength = '0' + newHexIdatLength
-            print('orginal length hex')
-            print(realLength)
-            print("from chunkt")
-            print(chunk_length2)
-            print('encrypted lenght')
-            print(newLength)
-            print("Równe hex length? Old: " + str(len(chunk_data.hex())) + "||New: " + str(len(newIdatHex)))
-            print(len(chunk_data.hex()) == len(newIdatHex))
-            bytesData = bytes.fromhex(newIdatHex)
-            print("Równe bytes length? Old: "+str(len(chunk_data))+"||New: " + str(len(bytesData)))
-            print(len(chunk_data) == len(bytesData))
 
             new_png.write(bytes.fromhex(newHexIdatLength))
-            #new_png.write(chunk_length)
             new_png.write(chunk_type)
             calc_crc = zlib.crc32(chunk_type + bytes.fromhex(newIdatHex)) & 0xffffffff
             calc_crc = struct.pack('!I', calc_crc)
             new_png.write(bytes.fromhex(newIdatHex))
             #new_png.write(crc)
             new_png.write(calc_crc)
+        elif chunk_type2.upper() == "IEND":
+            print("ELO")
         else:
             new_png.write(chunk_length)
             new_png.write(chunk_type)
@@ -467,6 +454,7 @@ def encodePicture(input, output, method, n, e):
     new_png.write(chunk_type)
     #new_png.write(chunk_data)
     new_png.write(crc)
+    new_png.write(bytes(lastChunkSize))
     new_png.close()
     old_png.close()
 
@@ -488,18 +476,7 @@ def decodePicture(input, output, method, n, d):
     chunk_data = old_png.read(chunk_length2)
     crc = old_png.read(4)
     while chunk_data:
-        if chunk_type2.upper() == "IHDR":
-            width = int(chunk_data.hex()[0:8], 16)
-            print("Image Width: ", width)
-            height = int(chunk_data.hex()[8:16], 16)
-            print("Image Height: ", height)
-            variable = int(chunk_data.hex()[18:20], 16)
-            print("Color Type: ", variable)
-            new_png.write(chunk_length)
-            new_png.write(chunk_type)
-            new_png.write(chunk_data)
-            new_png.write(crc)
-        elif chunk_type2.upper() in {"IDAT"}:
+        if chunk_type2.upper() in {"IDAT"}:
             #chunkLengthDec = chunk_length2
             chunkLengthDec = int.from_bytes(chunk_length, byteorder='big')
             realLength = 2 * chunkLengthDec
@@ -515,20 +492,20 @@ def decodePicture(input, output, method, n, d):
             newHexIdatLength = format(newLength, 'x')
             while len(newHexIdatLength) % 8 != 0:
                 newHexIdatLength = '0' + newHexIdatLength
-            print('orginal length hex')
-            print(realLength)
-            print("from chunkt")
-            print(chunk_length2)
-            print('encrypted lenght')
-            print(newLength)
-            print("Równe hex length? Old: " + str(len(chunk_data.hex())) + "||New: " + str(len(newIdatHex)))
-            print(len(chunk_data.hex()) == len(newIdatHex))
-            bytesData = bytes.fromhex(newIdatHex)
-            print("Równe bytes length? Old: "+str(len(chunk_data))+"||New: " + str(len(bytesData)))
-            print(len(chunk_data) == len(bytesData))
+            # print('orginal length hex')
+            # print(realLength)
+            # print("from chunkt")
+            # print(chunk_length2)
+            # print('encrypted lenght')
+            # print(newLength)
+            # print("Równe hex length? Old: " + str(len(chunk_data.hex())) + "||New: " + str(len(newIdatHex)))
+            # print(len(chunk_data.hex()) == len(newIdatHex))
+            # bytesData = bytes.fromhex(newIdatHex)
+            # print("Równe bytes length? Old: "+str(len(chunk_data))+"||New: " + str(len(bytesData)))
+            # print(len(chunk_data) == len(bytesData))
 
-            #new_png.write(bytes.fromhex(newHexIdatLength))
-            new_png.write(chunk_length)
+            new_png.write(bytes.fromhex(newHexIdatLength))
+            #new_png.write(chunk_length)
             new_png.write(chunk_type)
             calc_crc = zlib.crc32(chunk_type + bytes.fromhex(newIdatHex)) & 0xffffffff
             calc_crc = struct.pack('!I', calc_crc)
@@ -563,7 +540,7 @@ print("Finding key time: " + str(end - start))
 #print("::::!TESTS!::::")
 #print(7 == encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) should be 7
 #print(123 == encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
-filein = "2.png"
+filein = "PNGFile4.png"
 fileout = "out.png"
 decodeOut = "decoded.png"
 
