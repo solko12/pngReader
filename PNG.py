@@ -575,7 +575,7 @@ decodePicture(fileout, decodeOut, 1, n, d)
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
-                 "\n3 - wyswietl zdjecie,\n4 - koduj obraz \n9 - wyjscie \nWybor: "))
+                 "\n3 - wyswietl zdjecie,\n4 - koduj obraz,\n5 - dekoduj obraz,\n9 - wyjscie \nWybor: "))
 
 while (tryb != 9):
     if tryb == 0:
@@ -596,9 +596,16 @@ while (tryb != 9):
         picture_to_encode = input("Podaj nazwe pliku do zakodowania: ")
         picture_after_encode = input("Podaj nazwe pliku wynikowego: ")
         start = time.time()
-        encodePicture(picture_to_encode, picture_after_encode, 1)
+        encodePicture(picture_to_encode, picture_after_encode, 1, n, e)
         end = time.time()
         print("Encoding time: " + str(end - start))
+    elif tryb == 5:
+        picture_to_decode = input("Podaj nazwe pliku do zdekodowania: ")
+        picture_after_decode = input("Podaj nazwe pliku wynikowego: ")
+        start = time.time()
+        decodePicture(picture_to_decode, picture_after_decode, 1, d, e)
+        end = time.time()
+        print("Decoding time: " + str(end - start))
     else:
         print("Błędny tryb! Wybierz z listy prawidłowy!!")
     tryb = int(input("Wybierz tryb działania "
