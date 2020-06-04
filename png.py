@@ -5,13 +5,8 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plot
 import rsa as rsa
-from PIL import Image, ImageDraw, ImageFile, ImagePalette, _binary
+from PIL import Image
 import zlib
-import io
-
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import binascii
 
 from rsa import PublicKey, PrivateKey
 
@@ -469,7 +464,7 @@ def encryptDataLib(imageData, blockSize, realLength, n, e):
         blockInInt = bytes.fromhex(block)
         # Encrypt number
         key = PublicKey(n, e)
-        encryptedNumber = rsa.encrypt(blockInInt,key )
+        encryptedNumber = rsa.encrypt(blockInInt, key )
         # And make it hex
         encryptedBlock = encryptedNumber.hex() ##
         # Align size to blockSize length
@@ -552,8 +547,6 @@ def encodePicture(input, output, method, n, e):
             new_png.write(bytes.fromhex(newIdatHex))
             #new_png.write(crc)
             new_png.write(calc_crc)
-        elif chunk_type2.upper() == "IEND":
-            print("ELO")
         else:
             new_png.write(chunk_length)
             new_png.write(chunk_type)
@@ -658,8 +651,8 @@ print("Finding key time: " + str(end - start))
 #print(7 == encryptNumber(123, 7, 143))  # For 123 number and public key (7,143) should be 7
 #print(123 == encryptNumber(7, 103, 143))  # For 7 number and private key (103, 143) should be 123
 filein = "PNGFile4.png"
-fileout = "out.png"
-decodeOut = "decoded.png"
+fileout = "images/out.png"
+decodeOut = "images/decoded.png"
 
 n = keys["public"]["n"]
 e = keys["public"]["e"]
@@ -667,8 +660,24 @@ d = keys["private"]["d"]
 p = keys["private"]["p"]
 q = keys["private"]["q"]
 
+start = time.time()
 encodePicture(filein, fileout, 1, n, e)
+end = time.time()
+print("Own rsa time: " + str(end - start))
 decodePicture(fileout, decodeOut, 1, n, d, e, p, q)
+
+start = time.time()
+encodePicture(filein, "images/out2.png", 2, n, e)
+end = time.time()
+print("Own rsa time: " + str(end - start))
+decodePicture("images/out2.png", "images/decoded2.png", 2, n, d, e, p, q)
+
+start = time.time()
+encodePicture(filein, "images/out3.png", 3, n, e)
+end = time.time()
+decodePicture("images/out3.png", "images/decoded3.png", 3, n, d, e, p, q)
+print("Lib rsa time: " + str(end - start))
+
 
 tryb = int(input("Wybierz tryb działania "
                  "\nDostepne opcje: \n0 - dokodowanie pliku, \n1 - anonimizacja pliku, \n2 - FFT, "
@@ -692,6 +701,9 @@ while (tryb != 9):
     elif tryb == 4:
         picture_to_encode = input("Podaj nazwe pliku do zakodowania: ")
         picture_after_encode = input("Podaj nazwe pliku wynikowego: ")
+        method = input("Wybierz sposób deszyfrowania:\n1 - deszyfrowanie RSA metodą ECB (własna implementacja)\n2 - deszyfrowanie RSA wbudowana biblioteka\n3 - deszyfrowanie RSA metoda CBC (własna inplementacja")
+        while method not in {1, 2, 3}:
+            method = input("Błąd! Wybierz poprawny numer sposobu deszyfrowania:\n1 - deszyfrowanie RSA metoda ECB (własna implementacja)\n2 - deszyfrowanie RSA wbudowana biblioteka\n3 - deszyfrowanie RSA metoda CBC (własna inplementacja")
         start = time.time()
         encodePicture(picture_to_encode, picture_after_encode, 1, n, e)
         end = time.time()
@@ -699,8 +711,11 @@ while (tryb != 9):
     elif tryb == 5:
         picture_to_decode = input("Podaj nazwe pliku do zdekodowania: ")
         picture_after_decode = input("Podaj nazwe pliku wynikowego: ")
+        method = input("Wybierz sposób deszyfrowania:\n1 - deszyfrowanie RSA metodą ECB (własna implementacja)\n")
+        while method not in {1, 2, 3}:
+            method = input("Błąd! Wybierz poprawny numer sposobu deszyfrowania:\n1 - deszyfrowanie RSA metodą ECB (własna implementacja)\n")
         start = time.time()
-        decodePicture(picture_to_decode, picture_after_decode , 1, n, d, e, p, q)
+        decodePicture(picture_to_decode, picture_after_decode , method, n, d, e, p, q)
         end = time.time()
         print("Decoding time: " + str(end - start))
     else:
